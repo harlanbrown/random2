@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import csv, datetime, json, os, random, requests
+import csv, datetime, json, os, random, requests, string
 from robohash import Robohash
 
 HOSTNAME = 'localhost'
@@ -16,10 +16,11 @@ def md5sum(filename, blocksize=65536):
 
 
 def randimg(filename):
+    size = 1200
     rh = Robohash(filename)
-    rh.assemble(roboset='set1') 
+    rh.assemble(roboset='set1', sizex=size, sizey=size)
     with open('/tmp/' + filename, 'wb') as f:
-        rh.img.save(f, format='png')
+        rh.img.save(f, format='tiff')
     return '/tmp/' + filename
 
 
@@ -113,6 +114,19 @@ def getBatchId():
     return response.json()['batchId']
 
 
+def getSizes():
+    sizes=[]
+    sizevals=["Big and Tall", "L, XL, XXL", "Large and Small", "Large", "Medium", "Small", "large", "medium", "small", "xl, xxl, xs, x, m"]
+    #for i in range(0,int(numpy.random.normal(2,1,1))):
+    for i in range(0,random.randrange(3)):
+        size = random.choice(sizevals)
+        if size:
+            if size not in sizes:
+                sizes.append(size)
+    return sizes
+
+
+
 def createImageBlob(batchid, filename, mimetype, imgfile):
     url = 'http://' + HOSTNAME + ':' + PORT + '/nuxeo/api/v1/upload/' + batchid + '/0'
     headers = {'X-File-Type': mimetype}
@@ -142,22 +156,37 @@ def checkDocType(doctype):
         return False
 
 
+# 
+# sep blob creation from doc creation
+# handle batchid for local and s3
+# s3 req boto and bucket info
+
 lvl1 = 1 
-lvl2 = 1200
+lvl2 = 4
 wstype = 'Workspace'
-doctype = 'Picture'
+doctype = 'File'
+randomiz = False
+randWorkspaceRoot = False
 def main():
     if checkDocType(doctype):
-        wsr = createWorkspaceRoot()
+        if randWorkspaceRoot:
+            wsr = createWorkspaceRoot()
+        else:
+            wsr = 'workspaces'
         for i in range(lvl1):
             ws = createWorkspace(wsr)
+            print(ws)
             for j in range(lvl2):
                 b = getBatchId()
                 r = makeRecord(doctype)
-                docname = r[0]
-                filename = docname + '.png'
+                if randomiz:
+                    k = 32
+                    docname = ''.join(random.choices(string.ascii_letters + string.digits, k=k))
+                else:
+                    docname = r[0]
+                filename = docname + '.tiff'
                 pathtoimg = randimg(filename)
-                img = createImageBlob(b, docname, 'image/png', pathtoimg)
+                img = createImageBlob(b, docname, 'image/tiff', pathtoimg)
                 print(img)
                 doc = createDocument(wsr, ws, docname, doctype, r[3], b)
                 print(doc)

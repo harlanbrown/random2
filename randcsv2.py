@@ -78,6 +78,17 @@ def postCsv(workspaceRootName, workspaceName):
     response = requests.post(url, files=files, auth=auth)
     return response
 
+def getSizes():
+    sizes=[]
+    sizevals=["Big and Tall", "L, XL, XXL", "Large and Small", "Large", "Medium", "Small", "large", "medium", "small", "xl, xxl, xs, x, m"]
+    #for i in range(0,int(numpy.random.normal(2,1,1))):
+    for i in range(0,random.randrange(3)):
+        size = random.choice(sizevals)
+        if size:
+            if size not in sizes:
+                sizes.append(size)
+    return sizes
+
 
 def makeRecord(ecm_type):
     wordone = randword(1)
@@ -86,20 +97,25 @@ def makeRecord(ecm_type):
     ecm_name = ' '.join([wordone,wordtwo])
     dc_title = ecm_name
     dc_description = desc
-    return [ecm_name,ecm_type,dc_title,dc_description]
+    sizes = '|'.join(getSizes())
+    return [ecm_name,ecm_type,dc_title,dc_description,sizes]
 
 
 csvfilename = '/tmp/out.csv'
 lvl1 = 1
-lvl2 = 100
+lvl2 = 8
 wstype = 'Workspace'
 doctype = 'File'
+randWorkspaceRoot = False
 def main():
-    wsr = createWorkspaceRoot()
+    if randWorkspaceRoot:
+        wsr = createWorkspaceRoot()
+    else:
+        wsr = 'workspaces'
     for i in range(lvl1):
         with open(csvfilename, 'w') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['name','type','dc:title','dc:description'])
+            writer.writerow(['name','type','dc:title','dc:description','custom:stringList'])
             for j in range(lvl2):
                 writer.writerow(makeRecord(doctype))
         ws = createWorkspace(wsr)
