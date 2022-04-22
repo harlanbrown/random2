@@ -2,9 +2,15 @@
 import csv, datetime, json, os, random, requests, string
 from robohash import Robohash
 
+
+# createImageBlob's gonna need a S3 Direct Upload capability
+
 HOSTNAME = 'localhost'
 PORT = '8080'
 AUTH = ('Administrator', 'Administrator')
+USEBLOBS = False
+FORMAT = 'png'
+MIMETYPE = 'image/png'
 
 
 def md5sum(filename, blocksize=65536):
@@ -16,11 +22,11 @@ def md5sum(filename, blocksize=65536):
 
 
 def randimg(filename):
-    size = 1200
+    size = 300
     rh = Robohash(filename)
     rh.assemble(roboset='set1', sizex=size, sizey=size)
     with open('/tmp/' + filename, 'wb') as f:
-        rh.img.save(f, format='tiff')
+        rh.img.save(f, format=FORMAT)
     return '/tmp/' + filename
 
 
@@ -101,9 +107,9 @@ def makeRecord(ecm_type):
     wordone = randword(1)
     wordtwo = randword(1)
     desc = randword(3)
-    ecm_name = ' '.join([wordone,wordtwo])
+    ecm_name = '-'.join([wordone,wordtwo])
     dc_title = ecm_name
-    dc_description = desc
+    dc_description = desc.replace(' ','_')
     return [ecm_name,ecm_type,dc_title,dc_description]
 
 
@@ -112,19 +118,6 @@ def getBatchId():
     auth = AUTH
     response = requests.post(url, auth=auth)
     return response.json()['batchId']
-
-
-def getSizes():
-    sizes=[]
-    sizevals=["Big and Tall", "L, XL, XXL", "Large and Small", "Large", "Medium", "Small", "large", "medium", "small", "xl, xxl, xs, x, m"]
-    #for i in range(0,int(numpy.random.normal(2,1,1))):
-    for i in range(0,random.randrange(3)):
-        size = random.choice(sizevals)
-        if size:
-            if size not in sizes:
-                sizes.append(size)
-    return sizes
-
 
 
 def createImageBlob(batchid, filename, mimetype, imgfile):
@@ -137,12 +130,18 @@ def createImageBlob(batchid, filename, mimetype, imgfile):
 
 
 def createDocument(workspaceRootName, workspaceName, docname, doctype, description, batchid):
-    payload =  {'entity-type': 'document', 'name': docname, 'type': doctype, 'properties': {'dc:title': docname, 'dc:description': description, 'file:content': {'upload-batch': batchid, 'upload-fileId': '0'}}}
+    if batchid:
+        payload =  {'entity-type': 'document', 'name': docname, 'type': doctype, 'properties': {'dc:title': docname, 'dc:description': description, 'file:content': {'upload-batch': batchid, 'upload-fileId': '0'}}}
+    else:
+        payload =  {'entity-type': 'document', 'name': docname, 'type': doctype, 'properties': {'dc:title': docname, 'dc:description': description }}
+
     data_json = json.dumps(payload)
     url = 'http://' + HOSTNAME + ':' + PORT + '/nuxeo/api/v1/path/default-domain/' + workspaceRootName + '/' + workspaceName
     headers = {'Content-Type': 'application/json'}
     auth = AUTH
     response = requests.post(url, data=data_json, headers=headers, auth=auth)
+    if response:
+        print('/nuxeo/api/v1/path/default-domain/' + workspaceRootName + '/' + workspaceName + '/' + docname)
     return response
 
 
@@ -161,8 +160,8 @@ def checkDocType(doctype):
 # handle batchid for local and s3
 # s3 req boto and bucket info
 
-lvl1 = 1 
-lvl2 = 4
+lvl1 = 10
+lvl2 = 10
 wstype = 'Workspace'
 doctype = 'File'
 randomiz = False
@@ -184,12 +183,16 @@ def main():
                     docname = ''.join(random.choices(string.ascii_letters + string.digits, k=k))
                 else:
                     docname = r[0]
-                filename = docname + '.tiff'
-                pathtoimg = randimg(filename)
-                img = createImageBlob(b, docname, 'image/tiff', pathtoimg)
-                print(img)
+                if USEBLOBS:
+                    filename = docname + '.' + FORMAT
+                    pathtoimg = randimg(filename)
+                    img = createImageBlob(b, docname, MIMETYPE, pathtoimg)
+                    print(img)
+                else:
+                    b = None
                 doc = createDocument(wsr, ws, docname, doctype, r[3], b)
                 print(doc)
+
 
 main()
 

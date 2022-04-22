@@ -1,9 +1,23 @@
 #!/usr/bin/python3
 import csv, datetime, json, os, random, requests
+from robohash import Robohash
 
 HOSTNAME = 'localhost'
 PORT = '8080'
 AUTH = ('Administrator', 'Administrator')
+BLOBDIR = '/home/harlan/blobs'
+DOCMODE = False
+USEBLOBS= True
+FORMAT = 'png'
+MIMETYPE = 'image/png'
+
+def randimg(filename):
+    size = 1200
+    rh = Robohash(filename)
+    rh.assemble(roboset='set1', sizex=size, sizey=size)
+    with open(BLOBDIR + '/' + filename, 'wb') as f:
+        rh.img.save(f, format=FORMAT)
+    return BLOBDIR + '/' + filename
 
 
 def randint(places):
@@ -68,7 +82,9 @@ def createWorkspace(workspaceRootName):
 
 
 def postCsv(workspaceRootName, workspaceName):
-    payload = {'params':{'path':'/default-domain/'+workspaceRootName+'/'+workspaceName}}
+    #payload = {'params':{'path':'/default-domain/'+workspaceRootName+'/'+workspaceName}}
+    payload = {'params':{'path':'/default-domain/'+workspaceRootName+'/'+workspaceName, 'documentMode': DOCMODE}}
+#    payload = {'params':{'path':'/marketing/work/travel_marketing/national', 'documentMode': DOCMODE}}
     files = {
         'request': (None, json.dumps(payload), 'application/json+nxrequest'),
         'out.csv': ('out.csv', open('/tmp/out.csv', 'rb'), 'text/csv')
@@ -78,17 +94,6 @@ def postCsv(workspaceRootName, workspaceName):
     response = requests.post(url, files=files, auth=auth)
     return response
 
-def getSizes():
-    sizes=[]
-    sizevals=["Big and Tall", "L, XL, XXL", "Large and Small", "Large", "Medium", "Small", "large", "medium", "small", "xl, xxl, xs, x, m"]
-    #for i in range(0,int(numpy.random.normal(2,1,1))):
-    for i in range(0,random.randrange(3)):
-        size = random.choice(sizevals)
-        if size:
-            if size not in sizes:
-                sizes.append(size)
-    return sizes
-
 
 def makeRecord(ecm_type):
     wordone = randword(1)
@@ -97,15 +102,22 @@ def makeRecord(ecm_type):
     ecm_name = ' '.join([wordone,wordtwo])
     dc_title = ecm_name
     dc_description = desc
-    sizes = '|'.join(getSizes())
-    return [ecm_name,ecm_type,dc_title,dc_description,sizes]
+    if USEBLOBS:
+        filename = ecm_name + '.' + FORMAT
+        randimg(filename)
+        file_content = filename
+        #files_files = '"[{\\"file\\":{\\"mime-type\\":\\"'+MIMETYPE+'\\",\\"content\\":\\"'+filename+'\\"}}]"'
+#        files_files = '"[{\\"file\\":{\\"content\\":\\"'+filename+'\\"}}]"'
+        return [ecm_name,ecm_type,dc_title,dc_description,file_content]
+    else:
+        return [ecm_name,ecm_type,dc_title,dc_description]
 
 
 csvfilename = '/tmp/out.csv'
 lvl1 = 1
-lvl2 = 8
+lvl2 = 1 
 wstype = 'Workspace'
-doctype = 'File'
+doctype = 'Asset'
 randWorkspaceRoot = False
 def main():
     if randWorkspaceRoot:
@@ -115,12 +127,21 @@ def main():
     for i in range(lvl1):
         with open(csvfilename, 'w') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
-            writer.writerow(['name','type','dc:title','dc:description','custom:stringList'])
+            if USEBLOBS:
+#                csvfile.write(','.join(['name','type','dc:title','dc:description','file:content','files:files'])+'\n')
+                writer.writerow(['name','type','dc:title','dc:description','file:content'])
+            else:
+#                csvfile.write(','.join(['name','type','dc:title','dc:description'])+'\n')
+                writer.writerow(['name','type','dc:title','dc:description'])
             for j in range(lvl2):
+#                csvfile.write(','.join(makeRecord(doctype))+'\n')
                 writer.writerow(makeRecord(doctype))
         ws = createWorkspace(wsr)
+#        ws = '' 
         response = postCsv(wsr,ws)
+        print(str(response))
         print('    '  +  ws + '    ' + str(response))
+        #### this should follow log, check status and result
 main()
 
 
