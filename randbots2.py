@@ -8,7 +8,7 @@ from robohash import Robohash
 HOSTNAME = 'localhost'
 PORT = '8080'
 AUTH = ('Administrator', 'Administrator')
-USEBLOBS = False
+USEBLOBS = True
 FORMAT = 'png'
 MIMETYPE = 'image/png'
 
@@ -122,10 +122,9 @@ def getBatchId():
 
 def createImageBlob(batchid, filename, mimetype, imgfile):
     url = 'http://' + HOSTNAME + ':' + PORT + '/nuxeo/api/v1/upload/' + batchid + '/0'
-    headers = {'X-File-Type': mimetype}
-    files = {'file': open(imgfile, 'rb')}
+    headers = {'X-File-Type': mimetype, 'X-File-Name': filename}
     auth = AUTH
-    response = requests.post(url, files=files, headers=headers, auth=auth)
+    response = requests.post(url, data=open(imgfile,'rb'), headers=headers, auth=auth)
     return response
 
 
@@ -186,7 +185,7 @@ def main():
                 if USEBLOBS:
                     filename = docname + '.' + FORMAT
                     pathtoimg = randimg(filename)
-                    img = createImageBlob(b, docname, MIMETYPE, pathtoimg)
+                    img = createImageBlob(b, filename, MIMETYPE, pathtoimg)
                     print(img)
                 else:
                     b = None
